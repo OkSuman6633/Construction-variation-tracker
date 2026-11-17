@@ -1,0 +1,201 @@
+{
+  "profile_name": "synthetic_case_conflicting_dates",
+  "synthetic": true,
+  "description": "CVI-021 is dated 14 June on its face, 21 June by the user's record and the reply email; one numeric date is ambiguous.",
+  "case_context": {
+    "title": "Level 2 distribution boards - CVI-021",
+    "alleged_change": "Relocation of distribution boards was instructed.",
+    "parties": [
+      {
+        "name": "Northgate Contractors Ltd",
+        "role": "main contractor"
+      },
+      {
+        "name": "Halden Electrical Ltd",
+        "role": "subcontractor"
+      }
+    ],
+    "contract": {
+      "form": "unknown"
+    },
+    "key_dates": {}
+  },
+  "documents": [
+    {
+      "document_id": "doc-101",
+      "filename": "CVI-021.pdf",
+      "mime_type": "application/pdf",
+      "recorded_event_date": "2026-06-21",
+      "origin": "main contractor",
+      "category": "instruction",
+      "relevant": true,
+      "pages": [
+        {
+          "page_ref": "page_1",
+          "text": "CONSTRUCTION VARIATION INSTRUCTION CVI-021\nDate: 14 June 2026\nFrom: Northgate Contractors Ltd\nTo: Halden Electrical Ltd\nPlease proceed with relocation of the Level 2 distribution boards."
+        }
+      ]
+    },
+    {
+      "document_id": "doc-102",
+      "filename": "RE CVI-021.eml",
+      "mime_type": "message/rfc822",
+      "recorded_event_date": "2026-06-23",
+      "origin": "subcontractor",
+      "category": "correspondence",
+      "relevant": true,
+      "pages": [
+        {
+          "page_ref": "page_1",
+          "text": "From: A. Patel (Halden Electrical Ltd)\nTo: J. Marsh (Northgate Contractors Ltd)\nDate: 23 June 2026\nSubject: CVI-021 distribution boards\nWe acknowledge your instruction CVI-021 of 21 June 2026 and will price the relocation."
+        }
+      ]
+    },
+    {
+      "document_id": "doc-103",
+      "filename": "Q-0300.pdf",
+      "mime_type": "application/pdf",
+      "recorded_event_date": "2026-06-24",
+      "origin": "subcontractor",
+      "category": "quotation",
+      "relevant": true,
+      "pages": [
+        {
+          "page_ref": "page_1",
+          "text": "QUOTATION Q-0300\nDate: 24 June 2026\nRef: CVI-021 relocation of Level 2 distribution boards\nTotal: £2,150.00"
+        }
+      ]
+    },
+    {
+      "document_id": "doc-104",
+      "filename": "Attendance 03-07.pdf",
+      "mime_type": "application/pdf",
+      "recorded_event_date": null,
+      "origin": "subcontractor",
+      "category": "site_diary",
+      "relevant": true,
+      "pages": [
+        {
+          "page_ref": "page_1",
+          "text": "ATTENDANCE RECORD 03/07/2026\nLevel 2 distribution boards, CVI-021\nLabour: 2 electricians"
+        }
+      ]
+    }
+  ],
+  "expected": {
+    "events": [
+      {
+        "document_id": "doc-101",
+        "event_type": "instruction_issued",
+        "event_date": "14 June 2026",
+        "page_ref": "page_1",
+        "quote": "Please proceed with relocation of the Level 2 distribution boards",
+        "description": "CVI-021 asks Halden to proceed with relocating the Level 2 distribution boards.",
+        "references": [
+          "CVI-021"
+        ],
+        "parties": [
+          "Northgate Contractors Ltd",
+          "Halden Electrical Ltd"
+        ],
+        "amount": null,
+        "currency": null,
+        "confidence": 0.9,
+        "uncertainties": []
+      },
+      {
+        "document_id": "doc-102",
+        "event_type": "instruction_issued",
+        "event_date": "21 June 2026",
+        "page_ref": "page_1",
+        "quote": "your instruction CVI-021 of 21 June 2026",
+        "description": "The email refers to instruction CVI-021 as dated 21 June 2026.",
+        "references": [
+          "CVI-021"
+        ],
+        "parties": [],
+        "amount": null,
+        "currency": null,
+        "confidence": 0.9,
+        "uncertainties": []
+      },
+      {
+        "document_id": "doc-103",
+        "event_type": "quotation_issued",
+        "event_date": "24 June 2026",
+        "page_ref": "page_1",
+        "quote": "Total: £2,150.00",
+        "description": "Quotation Q-0300 totals 2,150.00 GBP.",
+        "references": [
+          "Q-0300",
+          "CVI-021"
+        ],
+        "parties": [],
+        "amount": 2150.0,
+        "currency": "GBP",
+        "confidence": 0.9,
+        "uncertainties": []
+      },
+      {
+        "document_id": "doc-104",
+        "event_type": "site_record",
+        "event_date": "03/07/2026",
+        "page_ref": "page_1",
+        "quote": "ATTENDANCE RECORD 03/07/2026",
+        "description": "Attendance record for the distribution board works.",
+        "references": [
+          "CVI-021"
+        ],
+        "parties": [],
+        "amount": null,
+        "currency": null,
+        "confidence": 0.7,
+        "uncertainties": [
+          "numeric date is ambiguous (day-first assumed)"
+        ]
+      }
+    ],
+    "relationships": [
+      {
+        "documents": [
+          "doc-101",
+          "doc-102"
+        ],
+        "relation": "responds_to",
+        "shared_references": [
+          "CVI-021"
+        ],
+        "rationale": "The email responds to CVI-021.",
+        "confidence": 0.9
+      }
+    ],
+    "candidates": [
+      {
+        "title": "Relocation of Level 2 distribution boards (CVI-021)",
+        "event_keys": [
+          [
+            "doc-101",
+            "instruction_issued"
+          ],
+          [
+            "doc-103",
+            "quotation_issued"
+          ]
+        ],
+        "alleged_original_scope": null,
+        "proposed_scope_delta": "Relocation of the Level 2 distribution boards.",
+        "related_instruction_refs": [
+          "CVI-021"
+        ],
+        "quantity_text": null,
+        "amount": 2150.0,
+        "currency": "GBP",
+        "confidence": 0.7
+      }
+    ],
+    "missing_evidence": [],
+    "conflicts": [
+      "date"
+    ]
+  }
+}

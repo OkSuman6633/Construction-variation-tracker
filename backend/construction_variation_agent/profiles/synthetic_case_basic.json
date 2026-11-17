@@ -1,0 +1,330 @@
+{
+  "profile_name": "synthetic_case_basic",
+  "synthetic": true,
+  "description": "Project Alpha, Variation 014: instruction, reply, quotation, site diary, revised quotation, unrelated programme.",
+  "case_context": {
+    "title": "Project Alpha - Variation 014",
+    "alleged_change": "Additional electrical units on Level 3 were instructed by the main contractor.",
+    "parties": [
+      {
+        "name": "Northgate Contractors Ltd",
+        "role": "main contractor"
+      },
+      {
+        "name": "Halden Electrical Ltd",
+        "role": "subcontractor"
+      }
+    ],
+    "contract": {
+      "form": "unknown"
+    },
+    "key_dates": {}
+  },
+  "documents": [
+    {
+      "document_id": "doc-001",
+      "filename": "CVI-014.pdf",
+      "mime_type": "application/pdf",
+      "recorded_event_date": "2026-06-14",
+      "origin": "main contractor",
+      "category": "instruction",
+      "relevant": true,
+      "pages": [
+        {
+          "page_ref": "page_1",
+          "text": "CONSTRUCTION VARIATION INSTRUCTION CVI-014\nDate: 14 June 2026\nFrom: Northgate Contractors Ltd (Main Contractor)\nTo: Halden Electrical Ltd (Subcontractor)\nProject: Alpha Residential, Block B\nPlease proceed with the additional electrical units on Level 3 as shown on revised drawing E-301 Rev C.\nQuantity: 12 additional consumer units\nIssued by: J. Marsh, Site Manager"
+        }
+      ]
+    },
+    {
+      "document_id": "doc-002",
+      "filename": "RE CVI-014 additional units.eml",
+      "mime_type": "message/rfc822",
+      "recorded_event_date": "2026-06-16",
+      "origin": "subcontractor",
+      "category": "correspondence",
+      "relevant": true,
+      "pages": [
+        {
+          "page_ref": "page_1",
+          "text": "From: A. Patel (Halden Electrical Ltd)\nTo: J. Marsh (Northgate Contractors Ltd)\nDate: 16 June 2026\nSubject: RE: CVI-014 additional units\nFurther to CVI-014 we confirm that we will submit a quotation for the additional 12 units.\nPlease confirm access to Level 3 from 20 June 2026."
+        }
+      ]
+    },
+    {
+      "document_id": "doc-003",
+      "filename": "Q-0231.pdf",
+      "mime_type": "application/pdf",
+      "recorded_event_date": "2026-06-18",
+      "origin": "subcontractor",
+      "category": "quotation",
+      "relevant": true,
+      "pages": [
+        {
+          "page_ref": "page_1",
+          "text": "QUOTATION Q-0231\nDate: 18 June 2026\nRef: CVI-014 additional consumer units, Level 3, Block B\nQuantity: 12\nRate: £450.00 each\nTotal: £5,400.00\nValidity: 30 days"
+        }
+      ]
+    },
+    {
+      "document_id": "doc-004",
+      "filename": "Site diary 22 June.pdf",
+      "mime_type": "application/pdf",
+      "recorded_event_date": "2026-06-22",
+      "origin": "subcontractor",
+      "category": "site_diary",
+      "relevant": true,
+      "pages": [
+        {
+          "page_ref": "page_1",
+          "text": "SITE DIARY - 22 June 2026\nBlock B, Level 3\nLabour: 4 electricians\nWork started on the additional consumer units following CVI-014.\nAccess to Level 3 granted by main contractor. Weather dry."
+        }
+      ]
+    },
+    {
+      "document_id": "doc-005",
+      "filename": "Q-0231 Rev B.pdf",
+      "mime_type": "application/pdf",
+      "recorded_event_date": "2026-06-25",
+      "origin": "subcontractor",
+      "category": "quotation",
+      "relevant": true,
+      "pages": [
+        {
+          "page_ref": "page_1",
+          "text": "QUOTATION Q-0231 Rev B\nDate: 25 June 2026\nRef: CVI-014 additional consumer units, Level 3, Block B\nQuantity revised from 12 to 14 after site survey.\nRate: £450.00 each\nTotal: £6,300.00"
+        }
+      ]
+    },
+    {
+      "document_id": "doc-006",
+      "filename": "Programme Rev 4.pdf",
+      "mime_type": "application/pdf",
+      "recorded_event_date": "2026-06-01",
+      "origin": "main contractor",
+      "category": "programme",
+      "relevant": false,
+      "pages": [
+        {
+          "page_ref": "page_1",
+          "text": "MASTER PROGRAMME REV 4\nDate: 1 June 2026\nLevel 3 first fix electrical completes 30 June 2026.\nPractical completion remains as previously issued."
+        }
+      ]
+    }
+  ],
+  "expected": {
+    "events": [
+      {
+        "document_id": "doc-001",
+        "event_type": "instruction_issued",
+        "event_date": "14 June 2026",
+        "page_ref": "page_1",
+        "quote": "Please proceed with the additional electrical units on Level 3",
+        "description": "Instruction CVI-014 asks Halden to proceed with additional electrical units on Level 3.",
+        "references": [
+          "CVI-014",
+          "E-301"
+        ],
+        "parties": [
+          "Northgate Contractors Ltd",
+          "Halden Electrical Ltd"
+        ],
+        "amount": null,
+        "currency": null,
+        "confidence": 0.9,
+        "uncertainties": []
+      },
+      {
+        "document_id": "doc-001",
+        "event_type": "quantity_revision",
+        "event_date": "14 June 2026",
+        "page_ref": "page_1",
+        "quote": "Quantity: 12 additional consumer units",
+        "description": "The instruction states a quantity of 12 additional consumer units.",
+        "references": [
+          "CVI-014"
+        ],
+        "parties": [],
+        "amount": null,
+        "currency": null,
+        "confidence": 0.9,
+        "uncertainties": []
+      },
+      {
+        "document_id": "doc-002",
+        "event_type": "correspondence",
+        "event_date": "16 June 2026",
+        "page_ref": "page_1",
+        "quote": "we will submit a quotation for the additional 12 units",
+        "description": "Halden confirms it will submit a quotation for the 12 additional units.",
+        "references": [
+          "CVI-014"
+        ],
+        "parties": [
+          "A. Patel",
+          "J. Marsh"
+        ],
+        "amount": null,
+        "currency": null,
+        "confidence": 0.9,
+        "uncertainties": []
+      },
+      {
+        "document_id": "doc-003",
+        "event_type": "quotation_issued",
+        "event_date": "18 June 2026",
+        "page_ref": "page_1",
+        "quote": "Total: £5,400.00",
+        "description": "Quotation Q-0231 totals 5,400.00 GBP for 12 units.",
+        "references": [
+          "Q-0231",
+          "CVI-014"
+        ],
+        "parties": [],
+        "amount": 5400.0,
+        "currency": "GBP",
+        "confidence": 0.9,
+        "uncertainties": []
+      },
+      {
+        "document_id": "doc-004",
+        "event_type": "site_record",
+        "event_date": "22 June 2026",
+        "page_ref": "page_1",
+        "quote": "Work started on the additional consumer units following CVI-014",
+        "description": "Site diary records work starting on the additional consumer units.",
+        "references": [
+          "CVI-014"
+        ],
+        "parties": [],
+        "amount": null,
+        "currency": null,
+        "confidence": 0.9,
+        "uncertainties": []
+      },
+      {
+        "document_id": "doc-005",
+        "event_type": "quantity_revision",
+        "event_date": "25 June 2026",
+        "page_ref": "page_1",
+        "quote": "Quantity revised from 12 to 14 after site survey",
+        "description": "Quotation Rev B revises the quantity from 12 to 14.",
+        "references": [
+          "Q-0231",
+          "CVI-014"
+        ],
+        "parties": [],
+        "amount": null,
+        "currency": null,
+        "confidence": 0.9,
+        "uncertainties": []
+      },
+      {
+        "document_id": "doc-005",
+        "event_type": "quotation_revised",
+        "event_date": "25 June 2026",
+        "page_ref": "page_1",
+        "quote": "Total: £6,300.00",
+        "description": "Quotation Q-0231 Rev B totals 6,300.00 GBP.",
+        "references": [
+          "Q-0231",
+          "CVI-014"
+        ],
+        "parties": [],
+        "amount": 6300.0,
+        "currency": "GBP",
+        "confidence": 0.9,
+        "uncertainties": []
+      },
+      {
+        "document_id": "doc-006",
+        "event_type": "other",
+        "event_date": "1 June 2026",
+        "page_ref": "page_1",
+        "quote": "Level 3 first fix electrical completes 30 June 2026",
+        "description": "Programme Rev 4 shows Level 3 first fix electrical completing 30 June 2026.",
+        "references": [],
+        "parties": [],
+        "amount": null,
+        "currency": null,
+        "confidence": 0.9,
+        "uncertainties": []
+      }
+    ],
+    "relationships": [
+      {
+        "documents": [
+          "doc-001",
+          "doc-002"
+        ],
+        "relation": "responds_to",
+        "shared_references": [
+          "CVI-014"
+        ],
+        "rationale": "The email replies to CVI-014 by reference.",
+        "confidence": 0.9
+      },
+      {
+        "documents": [
+          "doc-003",
+          "doc-005"
+        ],
+        "relation": "revision_of",
+        "shared_references": [
+          "Q-0231"
+        ],
+        "rationale": "Rev B revises quotation Q-0231.",
+        "confidence": 0.9
+      }
+    ],
+    "candidates": [
+      {
+        "title": "Additional consumer units, Level 3 (CVI-014)",
+        "event_keys": [
+          [
+            "doc-001",
+            "instruction_issued"
+          ],
+          [
+            "doc-001",
+            "quantity_revision"
+          ],
+          [
+            "doc-003",
+            "quotation_issued"
+          ],
+          [
+            "doc-005",
+            "quotation_revised"
+          ],
+          [
+            "doc-004",
+            "site_record"
+          ]
+        ],
+        "alleged_original_scope": null,
+        "proposed_scope_delta": "Additional electrical units on Level 3 per drawing E-301 Rev C.",
+        "related_instruction_refs": [
+          "CVI-014"
+        ],
+        "quantity_text": "12 additional consumer units (quotation revised to 14)",
+        "amount": 6300.0,
+        "currency": "GBP",
+        "confidence": 0.8
+      }
+    ],
+    "missing_evidence": [
+      {
+        "description": "Revised drawing E-301 Rev C referenced by CVI-014 is not in the evidence.",
+        "expected_document_kind": "revised_drawing",
+        "event_keys": [
+          [
+            "doc-001",
+            "instruction_issued"
+          ]
+        ]
+      }
+    ],
+    "conflicts": []
+  }
+}

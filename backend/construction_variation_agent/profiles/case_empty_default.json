@@ -1,0 +1,22 @@
+{
+  "profile_name": "case_empty_default",
+  "synthetic": true,
+  "description": "Empty case used as the UI default.",
+  "case_context": {
+    "title": "Untitled variation case",
+    "alleged_change": "Not yet described.",
+    "parties": [],
+    "contract": {
+      "form": "unknown"
+    },
+    "key_dates": {}
+  },
+  "documents": [],
+  "expected": {
+    "events": [],
+    "relationships": [],
+    "candidates": [],
+    "missing_evidence": [],
+    "conflicts": []
+  }
+}

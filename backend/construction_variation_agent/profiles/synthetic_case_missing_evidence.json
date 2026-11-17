@@ -1,0 +1,151 @@
+{
+  "profile_name": "synthetic_case_missing_evidence",
+  "synthetic": true,
+  "description": "A quotation cites CVI-045, but no instruction document exists; the site diary is undated.",
+  "case_context": {
+    "title": "Level 4 containment",
+    "alleged_change": "Additional containment on Level 4 was said to be instructed verbally.",
+    "parties": [
+      {
+        "name": "Northgate Contractors Ltd",
+        "role": "main contractor"
+      },
+      {
+        "name": "Halden Electrical Ltd",
+        "role": "subcontractor"
+      }
+    ],
+    "contract": {
+      "form": "unknown"
+    },
+    "key_dates": {}
+  },
+  "documents": [
+    {
+      "document_id": "doc-301",
+      "filename": "Q-0400.pdf",
+      "mime_type": "application/pdf",
+      "recorded_event_date": "2026-07-10",
+      "origin": "subcontractor",
+      "category": "quotation",
+      "relevant": true,
+      "pages": [
+        {
+          "page_ref": "page_1",
+          "text": "QUOTATION Q-0400\nDate: 10 July 2026\nRef: CVI-045 additional containment, Level 4\nTotal: £9,000.00"
+        }
+      ]
+    },
+    {
+      "document_id": "doc-302",
+      "filename": "Site diary undated.pdf",
+      "mime_type": "application/pdf",
+      "recorded_event_date": null,
+      "origin": "subcontractor",
+      "category": "site_diary",
+      "relevant": true,
+      "pages": [
+        {
+          "page_ref": "page_1",
+          "text": "SITE DIARY\nDate: ____________\nLevel 4 containment installation continued. Labour: 3 electricians."
+        }
+      ]
+    },
+    {
+      "document_id": "doc-303",
+      "filename": "Email 12 July.eml",
+      "mime_type": "message/rfc822",
+      "recorded_event_date": "2026-07-12",
+      "origin": "subcontractor",
+      "category": "correspondence",
+      "relevant": true,
+      "pages": [
+        {
+          "page_ref": "page_1",
+          "text": "From: A. Patel (Halden Electrical Ltd)\nDate: 12 July 2026\nSubject: Level 4\nAs discussed on site, we have started the extra containment works on Level 4."
+        }
+      ]
+    },
+    {
+      "document_id": "doc-304",
+      "filename": "Programme Rev 5.pdf",
+      "mime_type": "application/pdf",
+      "recorded_event_date": "2026-07-01",
+      "origin": "main contractor",
+      "category": "programme",
+      "relevant": false,
+      "pages": [
+        {
+          "page_ref": "page_1",
+          "text": "MASTER PROGRAMME REV 5\nDate: 1 July 2026\nLevel 4 electrical containment starts 14 July 2026."
+        }
+      ]
+    }
+  ],
+  "expected": {
+    "events": [
+      {
+        "document_id": "doc-301",
+        "event_type": "quotation_issued",
+        "event_date": "10 July 2026",
+        "page_ref": "page_1",
+        "quote": "Total: £9,000.00",
+        "description": "Quotation Q-0400 totals 9,000.00 GBP and cites CVI-045.",
+        "references": [
+          "Q-0400",
+          "CVI-045"
+        ],
+        "parties": [],
+        "amount": 9000.0,
+        "currency": "GBP",
+        "confidence": 0.9,
+        "uncertainties": []
+      },
+      {
+        "document_id": "doc-302",
+        "event_type": "site_record",
+        "event_date": null,
+        "page_ref": "page_1",
+        "quote": "Level 4 containment installation continued",
+        "description": "Undated site diary records Level 4 containment installation.",
+        "references": [],
+        "parties": [],
+        "amount": null,
+        "currency": null,
+        "confidence": 0.6,
+        "uncertainties": [
+          "the diary has no date"
+        ]
+      },
+      {
+        "document_id": "doc-303",
+        "event_type": "correspondence",
+        "event_date": "12 July 2026",
+        "page_ref": "page_1",
+        "quote": "we have started the extra containment works on Level 4",
+        "description": "Halden states it has started extra containment works, as discussed on site.",
+        "references": [],
+        "parties": [],
+        "amount": null,
+        "currency": null,
+        "confidence": 0.9,
+        "uncertainties": []
+      }
+    ],
+    "relationships": [],
+    "candidates": [],
+    "missing_evidence": [
+      {
+        "description": "No instruction document CVI-045 (cited by quotation Q-0400) is in the evidence; the change appears only in a quotation and an email.",
+        "expected_document_kind": "instruction",
+        "event_keys": [
+          [
+            "doc-301",
+            "quotation_issued"
+          ]
+        ]
+      }
+    ],
+    "conflicts": []
+  }
+}
