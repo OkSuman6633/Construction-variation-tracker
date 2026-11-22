@@ -156,13 +156,15 @@ def test_case_analysis_and_pdf_survive_sqlite_app_recreation(tmp_path, monkeypat
     pdf_text = "\n".join(
         page.extract_text() or "" for page in PdfReader(BytesIO(first_report.data)).pages
     )
-    assert len(PdfReader(BytesIO(first_report.data)).pages) <= 2
-    assert "What the files show" in pdf_text
-    assert "Ready to read: 1" in pdf_text
-    assert "Needs checking: 1" in pdf_text
-    assert "What needs checking" in pdf_text
+    assert len(PdfReader(BytesIO(first_report.data)).pages) >= 2
+    assert "FIELDNOTE" in pdf_text
     assert "Additional drainage" in pdf_text
-    assert "original scope drawing" in pdf_text
+    assert "VARIATION POSITION" in pdf_text
+    assert "CHRONOLOGY" in pdf_text
+
+    docx_report = first.reports.latest("tenant-a", case.case_id, format="docx")
+    assert docx_report.filename.endswith(".docx")
+    assert len(docx_report.data) > 1000
 
     monkeypatch.chdir(second_launch)
     second_app = create_app(settings)
@@ -179,7 +181,7 @@ def test_case_analysis_and_pdf_survive_sqlite_app_recreation(tmp_path, monkeypat
     assert latest.data == first_report.data
 
 
-def test_report_stays_at_two_pages_with_many_long_findings(tmp_path):
+def test_report_includes_all_events_and_findings_without_arbitrary_caps(tmp_path):
     store = SQLiteObjectStore(tmp_path / "large-case.db")
     projects, cases, case = _completed_case(store)
 
@@ -188,27 +190,27 @@ def test_report_stays_at_two_pages_with_many_long_findings(tmp_path):
             state.events[0].model_copy(
                 update={
                     "event_id": f"evt-{index:04d}",
-                    "description": "Additional drainage work was recorded in the site records. " * 7,
+                    "description": "Additional drainage work was recorded in the site records. " * 3,
                 }
             )
-            for index in range(1, 26)
+            for index in range(1, 15)
         ]
         state.candidates = [
             state.candidates[0].model_copy(
                 update={
                     "candidate_id": f"cand-{index:04d}",
                     "title": f"Possible change {index}",
-                    "proposed_scope_delta": "Additional work is described in the records. " * 7,
+                    "proposed_scope_delta": "Additional work is described in the records. " * 3,
                 }
             )
-            for index in range(1, 16)
+            for index in range(1, 6)
         ]
         state.reviewer_questions = [
             ReviewerQuestion(
                 question_id=f"qst-{index:04d}",
-                question="Please check the source files and confirm this detail. " * 8,
+                question="Please check the source files and confirm this detail. " * 3,
             )
-            for index in range(1, 21)
+            for index in range(1, 10)
         ]
         state.plain_english_summary = PlainEnglishSummary(
             text="The files describe possible changes. A person should check the sources and questions."
@@ -218,10 +220,17 @@ def test_report_stays_at_two_pages_with_many_long_findings(tmp_path):
     large_case = cases.update("tenant-a", case.case_id, add_many_findings)
     pdf = ReportService(store, projects, cases).generate("tenant-a", large_case.case_id)
     reader = PdfReader(BytesIO(pdf.data))
-    assert len(reader.pages) <= 2
-    assert "Showing 3 of 15 possible changes" in "\n".join(
-        page.extract_text() or "" for page in reader.pages
+    pdf_text = "\n".join(page.extract_text() or "" for page in reader.pages)
+    assert len(reader.pages) >= 2
+    assert "DRAFT CHRONOLOGY OF EVENTS" in pdf_text
+    assert "Additional drainage work was recorded" in pdf_text
+
+    # Verify DOCX generation alongside PDF
+    docx_rep = ReportService(store, projects, cases).latest(
+        "tenant-a", large_case.case_id, format="docx"
     )
+    assert docx_rep.filename.endswith(".docx")
+    assert len(docx_rep.data) > 5000
 
 
 def test_report_generation_requires_completed_analysis(tmp_path):

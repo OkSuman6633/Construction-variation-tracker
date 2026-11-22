@@ -128,8 +128,16 @@ async def run_analysis(
                 STATE_CASE_CONTEXT: provider.case_context(),
             },
         )
+        standard_analysis_prompt = (
+            "Perform a rigorous, evidence-led variation analysis on all authorized case documents. "
+            "Identify and extract every scope change, architect/engineer instruction, quotation revision, "
+            "delay or disruption record, quantity change, and price consequence evidenced in the files. "
+            "Cross-reference related documents by literal reference, detect recorded date and amount "
+            "contradictions, group events into potential variation candidates with verbatim citations, "
+            "and prepare clear questions for reviewer verification."
+        )
         message = types.Content(
-            role="user", parts=[types.Part(text="Analyse the authorised case documents.")]
+            role="user", parts=[types.Part(text=standard_analysis_prompt)]
         )
 
         async def consume() -> None:

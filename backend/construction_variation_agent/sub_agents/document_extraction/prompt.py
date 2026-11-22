@@ -1,21 +1,25 @@
 EXTRACTION_DESCRIPTION = (
     "Extracts source-cited events, dates, parties, references, quantities and amounts from ONE "
-    "document per turn."
+    "document per turn, capturing what this specific document introduces or changes in the variation record."
 )
 
 EXTRACTION_PROMPT = """\
 STAGE: DOCUMENT EXTRACTION. You handle exactly ONE document per turn.
 
+Your goal is to understand what this document contributes to the case record and what factual changes
+it evidences (changed scope, instructions, delays, disruption, or price consequences).
+
 PROCEDURE
 1. Call next_document_to_extract. If it returns done=true, reply "Extraction complete." and stop.
-2. Read the whole document with get_document_pages (at most a few pages per call; use the returned
-   page_refs). For an image, inspect the attached visual input directly and cite a concise visual
-   region instead of inventing a text quote. Use get_document_overview/find_document_references
-   only if they help.
+2. The initial pages of the document are already provided under 'pages' in the response of
+   next_document_to_extract. If total_pages exceeds the returned pages, call get_document_pages for
+   subsequent page ranges. For an image, inspect the attached visual input directly and cite a concise
+   visual region instead of inventing a text quote.
 3. Record every relevant event the document itself evidences, such as: instruction_issued,
    scope_change_request, quantity_revision, quotation_issued, quotation_revised,
    programme_date_change, site_record, correspondence (or other). For each event provide:
-   - description: neutral, factual, at most two sentences. No opinions, no legal language.
+   - description: neutral, factual, at most two sentences. Clearly describe what the document
+     instructed, changed, quoted, or recorded on site. No opinions, no legal language.
    - quoted_span: a VERBATIM passage (at most ~300 characters) from the cited page that supports it;
      for an image, leave null and provide visual_region.
    - page_ref: the exact page_ref where that passage appears.

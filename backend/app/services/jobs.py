@@ -110,9 +110,15 @@ class JobService:
             )
         if case.active_job_id:
             try:
-                active, _ = self._load(ctx.tenant_id, case.active_job_id)
+                active, active_gen = self._load(ctx.tenant_id, case.active_job_id)
                 if active.status in {JobStatus.QUEUED, JobStatus.WORKING}:
-                    return active, True  # repeated request: no duplicate job, no duplicate charge
+                    age = (datetime.now(UTC) - active.updated_at).total_seconds()
+                    if age < self.s.job_timeout_seconds:
+                        return active, True  # repeated request: no duplicate job, no duplicate charge
+                    active.status = JobStatus.FAILED
+                    active.failure_code = "JOB_TIMED_OUT"
+                    active.failure_message = "Previous job did not complete within the timeout window."
+                    self._save(active, active_gen)
             except AppError:
                 pass
         docs = self.eligible_documents(case)
@@ -241,6 +247,17 @@ class JobService:
             s.contradictions, s.missing_evidence = result.contradictions, result.missing_evidence
             s.reviewer_questions = result.reviewer_questions
             s.plain_english_summary = result.plain_english_summary
+            s.document_register = result.document_register
+            s.variation_positions = result.variation_positions
+            s.original_scope = result.original_scope
+            s.alleged_changes = result.alleged_changes
+            s.complete_chronology = result.complete_chronology
+            s.commercial_analysis = result.commercial_analysis
+            s.work_progress_analysis = result.work_progress_analysis
+            s.review_checklist = result.review_checklist
+            s.analysis_limitations = result.analysis_limitations
+            s.report_readiness = result.report_readiness
+            s.analysis_metadata = result.analysis_metadata
             for d in s.evidence:
                 if d.document_id in categories:
                     d.category = DocumentCategory(categories[d.document_id])

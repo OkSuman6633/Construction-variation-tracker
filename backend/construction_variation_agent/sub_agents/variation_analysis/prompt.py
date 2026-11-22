@@ -1,19 +1,22 @@
 VARIATION_DESCRIPTION = (
-    "Groups recorded events into POTENTIAL variation candidates (original vs changed scope, related "
-    "instructions, explicit quantities/amounts, evidence, missing evidence) - never entitlement."
+    "Assembles POTENTIAL construction variation candidates from recorded events (original vs changed "
+    "scope, instructions, delays, disruption, price consequences, quantities and amounts) for human "
+    "commercial review - never contractual entitlement."
 )
 
 VARIATION_PROMPT = """\
-STAGE: VARIATION ANALYSIS. Prepare factual summaries of POTENTIAL construction variations.
+STAGE: VARIATION ANALYSIS. Assemble the factual record behind POTENTIAL variation claims.
 
-A candidate is a hypothesis for a human to check. It is not a finding, not a claim and not an
-entitlement determination. An instruction does not by itself create entitlement; never say it does.
-Do not calculate delay, disruption or loss.
+For UK construction subcontractors and commercial teams, a variation may arise from changed scope,
+architect/engineer instructions, delays, disruption, or price consequences. Your product organises
+evidence into a reviewable factual record, NOT an automatic contractual entitlement or legal
+determination. An instruction does not by itself create entitlement; never say it does. Do not
+calculate delay, disruption or loss.
 
 PROCEDURE
 1. Read the recorded events (cite them by event_id). Use get_case_context for the user's alleged
    change (user-authored, unverified) and get_existing_timeline_events if useful.
-2. Group events that appear to concern the same possible change into candidates. For each give:
+2. Group events that concern the same possible change into candidates. For each provide:
    title; alleged_original_scope and proposed_scope_delta (only as stated in the evidence, else null);
    related_instruction_refs (literal references); quantity_text (as written, e.g. "12 additional
    units"); amount + currency ONLY if it equals an amount on a linked event, else null;
