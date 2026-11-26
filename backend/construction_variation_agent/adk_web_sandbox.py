@@ -11,9 +11,6 @@ from google.adk.agents import InvocationContext, SequentialAgent
 from google.adk.events import Event
 from google.genai import types
 
-from app.parsing.parsers import ParseError, parse_document
-from app.parsing.sniff import sniff_mime
-
 from .shared_libraries.constants import (
     ALLOWED_UPLOAD_MIME,
     DEFAULT_MAX_FILE_BYTES,
@@ -167,6 +164,8 @@ def _inline_uploads(
             raise AdkWebUploadError("The total size of ADK Web uploads must be 100 MB or smaller.")
         if len(uploads) >= MAX_ADK_WEB_DOCUMENTS:
             raise AdkWebUploadError("Attach no more than 200 documents per ADK Web analysis.")
+        from app.parsing.sniff import sniff_mime
+
         mime_type = sniff_mime(data)
         if mime_type not in ALLOWED_UPLOAD_MIME:
             filename = _safe_filename(
@@ -193,6 +192,8 @@ def _inline_uploads(
 def create_adk_web_runtime(
     user_content: types.Content | None,
 ) -> JobRuntime:
+    from app.parsing.parsers import ParseError, parse_document
+
     uploads, prompt = _inline_uploads(user_content)
     parsed_documents: dict[str, tuple[str, str, ParsedDocument]] = {}
     for index, (display_name, mime_type, data) in enumerate(uploads, start=1):

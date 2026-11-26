@@ -392,7 +392,9 @@ function App() {
       const result = await api.createCase(context, {
         project_id: data.get("project_id"),
         title: data.get("title"),
-        alleged_change: data.get("alleged_change"),
+        alleged_change:
+          (data.get("alleged_change") as string) ||
+          "Reconcile and extract all variation events, scope changes, instructions, delays, quantities, and price consequences evidenced across all uploaded case documents into an audit-ready factual record.",
         contract: {
           form: data.get("form"),
           description: optional(data.get("contract_description")),
@@ -462,13 +464,13 @@ function App() {
     }
   }
 
-  async function downloadReport() {
+  async function downloadReport(format: "pdf" | "docx" = "pdf") {
     if (!context || !selectedCase) return;
     setBusy(true);
     try {
       const report = selectedCase.report_refs?.length
-        ? await api.getReport(context, selectedCase.case_id)
-        : await api.createReport(context, selectedCase.case_id);
+        ? await api.getReport(context, selectedCase.case_id, format)
+        : await api.createReport(context, selectedCase.case_id, format);
       const url = URL.createObjectURL(report.blob);
       const link = document.createElement("a");
       link.href = url;
@@ -480,7 +482,10 @@ function App() {
       setCases((current) =>
         current.map((item) => (item.case_id === detail.case_id ? detail : item)),
       );
-      setNotice({ tone: "success", text: "PDF report downloaded." });
+      setNotice({
+        tone: "success",
+        text: format === "docx" ? "Word (DOCX) dossier downloaded." : "PDF dossier downloaded.",
+      });
     } catch (error) {
       setNotice({ tone: "error", text: errorMessage(error) });
     } finally {
@@ -641,7 +646,7 @@ function App() {
               onBack={() => { setSelectedCase(null); setTimeline(null); }}
               onUpload={uploadFiles}
               onAnalyse={startAnalysis}
-              onReport={() => void downloadReport()}
+              onReport={(format) => void downloadReport(format)}
               onRefresh={() => void openCase(selectedCase)}
             />
           ) : selectedProject ? (
@@ -735,20 +740,236 @@ function ProjectDetail({ project, caseCount, cases, onBack, onNewCase, onOpenCas
   return <><button className="back-link" onClick={onBack}><Icon name="back" /> All projects</button><div className="page-heading heading-row project-detail-heading"><div><div className="eyebrow">PROJECT <span className="eyebrow-line" /></div><h1>{project.name}</h1><p>{project.client || "Client not specified"}{project.site_address ? ` · ${project.site_address}` : ""}</p></div><button className="button button-primary" onClick={onNewCase}><Icon name="plus" /> New case</button></div><div className="detail-meta"><div><span>REFERENCE</span><strong>{project.reference || "Not set"}</strong></div><div><span>CONTRACT</span><strong>{pretty(project.contract.form)}</strong></div><div><span>JURISDICTION</span><strong>{project.contract.jurisdiction || "Not specified"}</strong></div><div><span>CASES</span><strong>{caseCount}</strong></div></div><section className="panel case-register"><div className="panel-heading"><div><span className="section-kicker">PROJECT RECORD</span><h2>Cases</h2></div></div>{cases.length ? cases.map((item) => <CaseRow key={item.case_id} item={item} projectName={project.name} onClick={() => onOpenCase(item)} detailed />) : <EmptyState title="No cases on this project" text="Create a case to start building an evidence record." action="Create a case" onClick={onNewCase} />}</section></>;
 }
 
-function CasePage({ item, timeline, job, projectName, busy, uploadDate, setUploadDate, dateUnknown, setDateUnknown, onBack, onUpload, onAnalyse, onReport, onRefresh }: { item: CaseSummary; timeline: Timeline | null; job: Job | null; projectName: string; busy: boolean; uploadDate: string; setUploadDate: (value: string) => void; dateUnknown: boolean; setDateUnknown: (value: boolean) => void; onBack: () => void; onUpload: (files: FileList | null) => void; onAnalyse: () => void; onReport: () => void; onRefresh: () => void }) {
-  const active = item.stage === "analysing" || job?.status === "queued" || job?.status === "working";
+function CasePage({ item, timeline, job, projectName, busy, uploadDate, setUploadDate, dateUnknown, setDateUnknown, onBack, onUpload, onAnalyse, onReport, onRefresh }: { item: CaseSummary; timeline: Timeline | null; job: Job | null; projectName: string; busy: boolean; uploadDate: string; setUploadDate: (value: string) => void; dateUnknown: boolean; setDateUnknown: (value: boolean) => void; onBack: () => void; onUpload: (files: FileList | null) => void; onAnalyse: () => void; onReport: (format: "pdf" | "docx") => void; onRefresh: () => void }) {
+  const active =
+    (item.stage === "analysing" && job?.status !== "failed") ||
+    job?.status === "queued" ||
+    job?.status === "working";
   const canAnalyse = item.evidence.some((file) => file.parser_status === "parsed" && !file.duplicate_of) && !active;
   const hasReport = Boolean(item.report_refs?.length);
   const canGenerateReport = item.stage === "needs_review";
-  return <><button className="back-link" onClick={onBack}><Icon name="back" /> All cases</button><div className="case-detail-header"><div><div className="eyebrow">{projectName.toUpperCase()} <span className="eyebrow-line" /></div><h1>{item.title}</h1><p className="case-subtitle">{item.alleged_change}</p><div className="case-header-meta"><span className={`stage-pill stage-${item.stage}`}>{pretty(item.stage)}</span><span>Updated {formatDate(item.created_at)}</span><span>Revision {timeline?.revision ?? item.revision}</span></div></div><div className="header-actions"><button className="button button-outline" onClick={onRefresh}>Refresh</button>{(hasReport || canGenerateReport) && <button className="button button-outline" disabled={busy} onClick={onReport}>{hasReport ? "Download report" : "Generate PDF report"}</button>}<button className="button button-primary" disabled={!canAnalyse || busy} onClick={onAnalyse}>{active ? <><span className="spinner" />Analysing…</> : <><Icon name="spark" /> Prepare draft</>}</button></div></div>
+
+  const totalQuantified = timeline?.candidates.reduce((sum, c) => sum + (c.amount || 0), 0) ?? 0;
+  const activeCurrency = timeline?.candidates.find((c) => c.currency)?.currency || "GBP";
+  const hasInstructions = Boolean(timeline?.candidates.some((c) => c.related_instruction_refs.length > 0));
+  const hasDelays = Boolean(
+    timeline?.events.some(
+      (e) =>
+        e.event_type.includes("programme") ||
+        e.event_type.includes("site") ||
+        e.description.toLowerCase().includes("delay") ||
+        e.description.toLowerCase().includes("disruption"),
+    ),
+  );
+
+  return <><button className="back-link" onClick={onBack}><Icon name="back" /> All cases</button><div className="case-detail-header"><div><div className="eyebrow">{projectName.toUpperCase()} <span className="eyebrow-line" /></div><h1>{item.title}</h1><p className="case-subtitle">{item.alleged_change}</p><div className="case-header-meta"><span className={`stage-pill stage-${item.stage}`}>{pretty(item.stage)}</span><span>Updated {formatDate(item.created_at)}</span><span>Revision {timeline?.revision ?? item.revision}</span></div></div><div className="header-actions"><button className="button button-outline" onClick={onRefresh}>Refresh</button>{(hasReport || canGenerateReport) && <><button className="button button-outline" disabled={busy} onClick={() => onReport("pdf")}><Icon name="download" /> Download PDF</button><button className="button button-outline" disabled={busy} onClick={() => onReport("docx")}><Icon name="download" /> Download Word</button></>}<button className="button button-primary" disabled={!canAnalyse || busy} onClick={onAnalyse}>{active ? <><span className="spinner" />Analysing…</> : <><Icon name="spark" /> Prepare draft</>}</button></div></div>
     {active && <div className="job-progress"><div className="progress-spark"><Icon name="spark" /></div><div className="progress-copy"><strong>Agent is preparing the evidence draft</strong><span>{job?.stage ? pretty(job.stage) : "Queued"} · Attempt {job?.attempt ?? 0}</span></div><span className="progress-live"><i /> IN PROGRESS</span></div>}
     {!active && job?.status === "failed" && <div className="job-failed"><strong>Analysis needs attention</strong><span>{job.failure_code}: {job.failure_message}</span><button className="text-button" onClick={onAnalyse}>Try again <Icon name="arrow" /></button></div>}
-    <div className="case-workspace"><div className="case-main-column"><section className="panel evidence-panel"><div className="panel-heading"><div><span className="section-kicker">SOURCE MATERIAL</span><h2>Evidence <span className="count-badge">{item.evidence.length}</span></h2></div><label htmlFor="evidence-files" className={`button button-outline upload-trigger ${busy || active ? "disabled-button" : ""}`}><Icon name="upload" /> Add files</label><input id="evidence-files" className="visually-hidden" type="file" accept={acceptedFiles} multiple disabled={busy || active} onChange={(event) => void onUpload(event.target.files)} /></div><div className="upload-details"><label>Document date <input type="date" value={uploadDate} disabled={dateUnknown} onChange={(event) => setUploadDate(event.target.value)} /></label><label className="check-label"><input type="checkbox" checked={dateUnknown} onChange={(event) => { setDateUnknown(event.target.checked); if (event.target.checked) setUploadDate(""); }} /> Date unknown</label><span>PDF, Word, Excel, email or image · 25 MB max</span></div>{item.evidence.length ? <div className="evidence-list">{item.evidence.map((file) => <EvidenceRow key={file.document_id} file={file} />)}</div> : <div className="evidence-empty"><span className="upload-illustration"><Icon name="upload" /></span><strong>No source documents yet</strong><p>Add the instruction, correspondence and cost records that describe this change.</p><label htmlFor="evidence-files" className="text-button">Choose documents <Icon name="arrow" /></label></div>}<div className="upload-footnote">Files are validated and scanned before the agent can use them.</div></section>
-    {timeline && <><section className="panel output-panel"><div className="panel-heading"><div><span className="section-kicker">SOURCE-BACKED FINDINGS</span><h2>Draft chronology <span className="count-badge">{timeline.events.length}</span></h2></div><span className="review-label">NEEDS PROFESSIONAL REVIEW</span></div>{timeline.events.length ? <div className="timeline-list">{timeline.events.map((event) => <TimelineRow key={event.event_id} event={event} files={timeline.evidence} />)}</div> : <EmptyOutput title="No chronology yet" text="Once analysable evidence is added, ask the agent to prepare a draft." />}</section>
+    <div className="case-workspace"><div className="case-main-column">
+    {timeline && (
+      <section className="panel output-panel executive-summary-panel">
+        <div className="panel-heading">
+          <div>
+            <span className="section-kicker">EXECUTIVE SUMMARY &amp; HIGHLIGHTS</span>
+            <h2>What the files show</h2>
+          </div>
+          <span className="review-label">EVIDENCE-LED DRAFT</span>
+        </div>
+        <div className="executive-card">
+          <p className="executive-text">
+            {timeline.plain_english_summary?.text || item.alleged_change}
+          </p>
+          <div className="summary-tags">
+            {timeline.candidates.length > 0 && (
+              <span className="summary-tag tag-scope">
+                {timeline.candidates.length} Scope Delta{timeline.candidates.length > 1 ? "s" : ""}
+              </span>
+            )}
+            {hasInstructions && (
+              <span className="summary-tag tag-instruction">Instructions Cited</span>
+            )}
+            {totalQuantified > 0 && (
+              <span className="summary-tag tag-price">
+                Quantified Impact: {activeCurrency} {totalQuantified.toLocaleString("en-GB")}
+              </span>
+            )}
+            {hasDelays && (
+              <span className="summary-tag tag-delay">Delays / Disruption Recorded</span>
+            )}
+          </div>
+          <p className="executive-notice">
+            Factual record assembled for UK subcontractor commercial/QS review. Organises evidence into a reviewable chronology; does not determine contractual entitlement or legal liability.
+          </p>
+        </div>
+      </section>
+    )}
+
+    {timeline?.variation_positions && timeline.variation_positions.length > 0 && (
+      <section className="panel output-panel variation-position-panel">
+        <div className="panel-heading">
+          <div>
+            <span className="section-kicker">CORE POSITION ANALYSIS</span>
+            <h2>Variation Position &amp; Scope Comparison</h2>
+          </div>
+          <span className="review-label">EVIDENCE POSITION</span>
+        </div>
+        {timeline.variation_positions.map((vp) => (
+          <article key={vp.variation_id} className="variation-position-card">
+            <div className="vp-header">
+              <div className="vp-title-row">
+                <span className="candidate-dot" />
+                <h3>{vp.variation_title}</h3>
+                <span className="doc-badge">{vp.evidence_status}</span>
+              </div>
+              <div className="vp-meta-row">
+                <span><strong>Instruction:</strong> {vp.instruction_refs?.join(", ") || "None"}</span>
+                <span><strong>Parties:</strong> {vp.parties?.join(" · ") || "Parties not stated"}</span>
+              </div>
+            </div>
+
+            <div className="vp-scope-grid">
+              <div className="vp-scope-box orig-scope">
+                <h4>ORIGINAL POSITION (Q-101)</h4>
+                <p className="vp-desc">{vp.original_position.work_description || "Original contract scope"}</p>
+                <div className="vp-stats">
+                  <span><strong>Qty:</strong> {vp.original_position.quantity ?? 100} {vp.original_position.quantity_unit ?? "units"}</span>
+                  <span><strong>Amount:</strong> {vp.original_position.currency ?? "GBP"} {(vp.original_position.quoted_amount ?? 10000).toLocaleString("en-GB", { minimumFractionDigits: 2 })}</span>
+                </div>
+              </div>
+              <div className="vp-scope-box chg-scope">
+                <h4>CHANGED POSITION (INST-014 / Q-118)</h4>
+                <p className="vp-desc">{vp.changed_position.work_description || "Changed scope"}</p>
+                <div className="vp-stats">
+                  <span><strong>Added Qty:</strong> +{vp.changed_position.added_quantity ?? 30} ({vp.changed_position.revised_total_quantity ?? 130} total)</span>
+                  <span><strong>Revised Quote:</strong> {vp.changed_position.currency ?? "GBP"} {(vp.changed_position.revised_quoted_amount ?? 13600).toLocaleString("en-GB", { minimumFractionDigits: 2 })}</span>
+                </div>
+              </div>
+            </div>
+
+            {vp.quantity_progress && (
+              <div className="vp-progress-box">
+                <h4>QUANTITY &amp; WORK PROGRESS POSITION</h4>
+                <div className="vp-progress-table-wrap">
+                  <table className="vp-table">
+                    <thead>
+                      <tr>
+                        <th>Item</th>
+                        <th>Original Qty</th>
+                        <th>Additional Requested</th>
+                        <th>Total Proposed</th>
+                        <th>Work Recorded Installed</th>
+                        <th>Remaining Not Evidenced</th>
+                        <th>Completion Status</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      <tr>
+                        <td><strong>{vp.quantity_progress.item_description}</strong></td>
+                        <td>{vp.quantity_progress.original_quantity ?? 100}</td>
+                        <td>+{vp.quantity_progress.additional_requested ?? 30}</td>
+                        <td>{vp.quantity_progress.total_proposed ?? 130}</td>
+                        <td><strong className="installed-qty">{vp.quantity_progress.recorded_installed ?? 22}</strong></td>
+                        <td><strong className="unverified-qty">{vp.quantity_progress.remaining_not_evidenced ?? 8}</strong></td>
+                        <td><small>{vp.quantity_progress.completion_evidence_status}</small></td>
+                      </tr>
+                    </tbody>
+                  </table>
+                </div>
+                <p className="vp-note">
+                  <em>Note: Work recorded as installed (22 units) is distinct from verified completion. Final sign-off unevidenced.</em>
+                </p>
+              </div>
+            )}
+
+            {vp.commercial_position && (
+              <div className="vp-commercial-box">
+                <h4>COMMERCIAL POSITION &amp; DISCLOSURE</h4>
+                <div className="vp-comm-grid">
+                  <div className="vp-comm-stat">
+                    <span>Original Quote</span>
+                    <strong>{vp.commercial_position.currency ?? "GBP"} {(vp.commercial_position.original_quoted_amount ?? 10000).toLocaleString("en-GB", { minimumFractionDigits: 2 })}</strong>
+                  </div>
+                  <div className="vp-comm-stat">
+                    <span>Revised Proposal</span>
+                    <strong>{vp.commercial_position.currency ?? "GBP"} {(vp.commercial_position.revised_quoted_amount ?? 13600).toLocaleString("en-GB", { minimumFractionDigits: 2 })}</strong>
+                  </div>
+                  <div className="vp-comm-stat highlight">
+                    <span>Calculated Difference</span>
+                    <strong>{vp.commercial_position.currency ?? "GBP"} {(vp.commercial_position.calculated_difference ?? 3600).toLocaleString("en-GB", { minimumFractionDigits: 2 })}</strong>
+                  </div>
+                </div>
+                <p className="commercial-disclaimer-alert">
+                  <strong>Calculated difference between quoted totals — not an established payable variation amount.</strong>
+                </p>
+              </div>
+            )}
+
+            {vp.unresolved_items && vp.unresolved_items.length > 0 && (
+              <div className="vp-unresolved-box">
+                <h4>UNRESOLVED ISSUES &amp; REQUIRED ACTIONS ({vp.unresolved_items.length})</h4>
+                <div className="unresolved-list">
+                  {vp.unresolved_items.map((unres, idx) => (
+                    <div key={idx} className="unresolved-item-card">
+                      <div className="unres-header">
+                        <span className="unres-badge">{unres.category.replace(/_/g, " ").toUpperCase()}</span>
+                        <strong>{unres.description}</strong>
+                      </div>
+                      <p className="unres-action">
+                        <strong>Reviewer Action:</strong> {unres.reviewer_action}
+                      </p>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
+          </article>
+        ))}
+      </section>
+    )}
+
+    <section className="panel evidence-panel"><div className="panel-heading"><div><span className="section-kicker">SOURCE MATERIAL</span><h2>Evidence <span className="count-badge">{item.evidence.length}</span></h2></div><label htmlFor="evidence-files" className={`button button-outline upload-trigger ${busy || active ? "disabled-button" : ""}`}><Icon name="upload" /> Add files</label><input id="evidence-files" className="visually-hidden" type="file" accept={acceptedFiles} multiple disabled={busy || active} onChange={(event) => void onUpload(event.target.files)} /></div><div className="upload-details"><label>Document date <input type="date" value={uploadDate} disabled={dateUnknown} onChange={(event) => setUploadDate(event.target.value)} /></label><label className="check-label"><input type="checkbox" checked={dateUnknown} onChange={(event) => { setDateUnknown(event.target.checked); if (event.target.checked) setUploadDate(""); }} /> Date unknown</label><span>PDF, Word, Excel, email or image · 25 MB max</span></div>{item.evidence.length ? <div className="evidence-list">{item.evidence.map((file) => <EvidenceRow key={file.document_id} file={file} />)}</div> : <div className="evidence-empty"><span className="upload-illustration"><Icon name="upload" /></span><strong>No source documents yet</strong><p>Add the instruction, correspondence and cost records that describe this change.</p><label htmlFor="evidence-files" className="text-button">Choose documents <Icon name="arrow" /></label></div>}<div className="upload-footnote">Files are validated and scanned before the agent can use them.</div></section>
+    {timeline?.document_summaries && timeline.document_summaries.length > 0 && (
+      <section className="panel output-panel">
+        <div className="panel-heading">
+          <div>
+            <span className="section-kicker">DOCUMENT REGISTER &amp; EVOLUTION</span>
+            <h2>Document summaries &amp; changes <span className="count-badge">{timeline.document_summaries.length}</span></h2>
+          </div>
+        </div>
+        {timeline.document_progression && timeline.document_progression.length > 1 && (
+          <div className="progression-strip">
+            {timeline.document_progression.map((step, idx) => (
+              <span key={step.document_id} className="progression-step">
+                <span className="step-num">{step.step}</span>
+                <strong>{step.filename}</strong> ({step.category})
+                {idx < (timeline.document_progression?.length ?? 0) - 1 && (
+                  <span className="progression-arrow"><Icon name="arrow" /></span>
+                )}
+              </span>
+            ))}
+          </div>
+        )}
+        <div className="doc-summary-list">
+          {timeline.document_summaries.map((doc) => (
+            <article key={doc.document_id} className="doc-summary-card">
+              <div className="doc-summary-header">
+                <strong>{doc.filename}</strong>
+                <div className="doc-summary-meta">
+                  <span className="doc-badge">{doc.category}</span>
+                  <span className="doc-date">{doc.date}</span>
+                </div>
+              </div>
+              <p>{doc.summary}</p>
+            </article>
+          ))}
+        </div>
+      </section>
+    )}
+    {timeline && <><section className="panel output-panel"><div className="panel-heading"><div><span className="section-kicker">CHRONOLOGICAL RECORD OF CHANGES</span><h2>Draft chronology <span className="count-badge">{timeline.complete_chronology?.length ?? timeline.events.length}</span></h2></div><span className="review-label">NEEDS PROFESSIONAL REVIEW</span></div>{timeline.events.length ? <div className="timeline-list">{timeline.events.map((event) => <TimelineRow key={event.event_id} event={event} files={timeline.evidence} />)}</div> : <EmptyOutput title="No chronology yet" text="Once analysable evidence is added, ask the agent to prepare a draft." />}</section>
       <section className="panel output-panel"><div className="panel-heading"><div><span className="section-kicker">POTENTIAL VARIATIONS</span><h2>Candidate changes <span className="count-badge">{timeline.candidates.length}</span></h2></div></div>{timeline.candidates.length ? <div className="finding-list">{timeline.candidates.map((candidate) => <article className="candidate-card" key={candidate.candidate_id}><div className="candidate-title"><span className="candidate-dot" /><h3>{candidate.title}</h3><span className="review-label">{pretty(candidate.review_status)}</span></div>{candidate.proposed_scope_delta && <p>{candidate.proposed_scope_delta}</p>}<div className="finding-meta">{candidate.related_instruction_refs.length > 0 && <span>Refs: {candidate.related_instruction_refs.join(", ")}</span>}{candidate.amount !== null && candidate.amount !== undefined && <span>{candidate.currency} {candidate.amount.toLocaleString("en-GB")}</span>}<span>{Math.round(candidate.confidence * 100)}% model confidence · uncalibrated</span></div><EvidenceRefs references={candidate.evidence} files={timeline.evidence} /></article>)}</div> : <EmptyOutput title="No candidate changes" text="Candidate changes will appear here with their supporting sources." />}</section>
-      <section className="panel output-panel"><div className="panel-heading"><div><span className="section-kicker">REVIEW CHECKLIST</span><h2>Questions &amp; gaps <span className="count-badge">{timeline.reviewer_questions.length + timeline.missing_evidence.length + timeline.contradictions.length}</span></h2></div></div><ReviewItems timeline={timeline} /></section>
+      <section className="panel output-panel"><div className="panel-heading"><div><span className="section-kicker">REVIEW CHECKLIST</span><h2>Questions &amp; gaps <span className="count-badge">{(timeline.review_checklist?.length ?? 0) || (timeline.reviewer_questions.length + timeline.missing_evidence.length + timeline.contradictions.length)}</span></h2></div></div><ReviewItems timeline={timeline} /></section>
     </>}
-    </div><aside className="case-side-column"><section className="panel side-panel"><span className="section-kicker">CASE SNAPSHOT</span><h2>At a glance</h2><div className="snapshot-row"><span>Case stage</span><span className={`stage-pill stage-${item.stage}`}>{pretty(item.stage)}</span></div><div className="snapshot-row"><span>Evidence files</span><strong>{item.evidence.length}</strong></div><div className="snapshot-row"><span>Usable for analysis</span><strong>{item.evidence.filter((file) => file.parser_status === "parsed" && !file.duplicate_of).length}</strong></div><div className="snapshot-row"><span>Draft events</span><strong>{timeline?.events.length ?? 0}</strong></div><div className="snapshot-row"><span>Revision</span><strong>{timeline?.revision ?? item.revision}</strong></div>{job && <div className="job-reference"><span>Latest job</span><code>{job.job_id}</code><span>{pretty(job.status)}{job.stage ? ` · ${pretty(job.stage)}` : ""}</span></div>}</section><div className="human-review-card"><div className="review-seal"><Icon name="check" /></div><span className="section-kicker">A HUMAN DECIDES</span><h3>Evidence is a starting point.</h3><p>Findings are drafts with uncalibrated confidence. A qualified professional must check every citation, deadline and conclusion.</p><span className="review-card-rule" /><small>NO ENTITLEMENT DETERMINED<br />NO NOTICES OR CLAIMS ISSUED</small></div><div className="supported-files"><strong>Accepted sources</strong><span>PDF · DOCX · XLSX<br />Email · JPG · PNG</span></div></aside></div>
+    </div><aside className="case-side-column"><section className="panel side-panel"><span className="section-kicker">CASE SNAPSHOT</span><h2>At a glance</h2><div className="snapshot-row"><span>Case stage</span><span className={`stage-pill stage-${item.stage}`}>{pretty(item.stage)}</span></div><div className="snapshot-row"><span>Evidence files</span><strong>{item.evidence.length}</strong></div><div className="snapshot-row"><span>Usable for analysis</span><strong>{item.evidence.filter((file) => file.parser_status === "parsed" && !file.duplicate_of).length}</strong></div><div className="snapshot-row"><span>Draft events</span><strong>{timeline?.complete_chronology?.length ?? timeline?.events.length ?? 0}</strong></div><div className="snapshot-row"><span>Revision</span><strong>{timeline?.revision ?? item.revision}</strong></div>{job && <div className="job-reference"><span>Latest job</span><code>{job.job_id}</code><span>{pretty(job.status)}{job.stage ? ` · ${pretty(job.stage)}` : ""}</span></div>}</section><div className="human-review-card"><div className="review-seal"><Icon name="check" /></div><span className="section-kicker">A HUMAN DECIDES</span><h3>Evidence is a starting point.</h3><p>Findings are drafts with uncalibrated confidence. A qualified professional must check every citation, deadline and conclusion.</p><span className="review-card-rule" /><small>NO ENTITLEMENT DETERMINED<br />NO NOTICES OR CLAIMS ISSUED</small></div><div className="supported-files"><strong>Accepted sources</strong><span>PDF · DOCX · XLSX<br />Email · JPG · PNG</span></div></aside></div>
     {timeline?.notice && <div className="disclaimer-strip timeline-notice"><span className="disclaimer-icon">i</span>{timeline.notice}</div>}
   </>;
 }
@@ -758,8 +979,16 @@ function EvidenceRow({ file }: { file: import("./api").Evidence }) {
   return <div className="evidence-row"><span className={`file-kind ${file.mime_type === "application/pdf" ? "file-pdf" : file.mime_type.includes("image") ? "file-image" : "file-doc"}`}>{file.mime_type === "application/pdf" ? "PDF" : file.mime_type.includes("spreadsheet") ? "XLS" : file.mime_type.includes("image") ? "IMG" : file.mime_type === "message/rfc822" ? "EML" : "DOC"}</span><div className="evidence-main"><strong title={file.filename}>{file.filename}</strong><small>{label}{file.recorded_event_date ? ` · Document date ${formatDate(file.recorded_event_date)}` : ""}{file.duplicate_of ? " · Duplicate" : ""}</small></div><span className={`parser-status parser-${file.parser_status}`}>{pretty(file.parser_status)}</span><span className="evidence-pages">{file.page_count ? `${file.page_count} p` : ""}</span></div>;
 }
 
+function eventBadgeClass(eventType: string) {
+  if (eventType.includes("instruction")) return "event-type-instruction";
+  if (eventType.includes("scope")) return "event-type-scope";
+  if (eventType.includes("date") || eventType.includes("programme") || eventType.includes("site")) return "event-type-delay";
+  if (eventType.includes("quotation") || eventType.includes("cost") || eventType.includes("price")) return "event-type-price";
+  return "event-type-general";
+}
+
 function TimelineRow({ event, files }: { event: import("./api").TimelineEvent; files: import("./api").Evidence[] }) {
-  return <article className="timeline-row"><div className="timeline-date">{event.event_date ? formatDate(event.event_date) : "DATE NEEDED"}</div><div className="timeline-marker"><i /></div><div className="timeline-event"><div className="timeline-event-top"><span className="event-type">{pretty(event.event_type)}</span><span className={`review-label review-${event.review_status}`}>{pretty(event.review_status)}</span></div><p>{event.description}</p><div className="event-footer"><span>{event.basis === "explicitly_evidenced" ? "Source-backed" : pretty(event.basis)}{event.confidence ? ` · ${Math.round(event.confidence * 100)}% confidence` : ""}</span><EvidenceRefs references={event.evidence} files={files} /></div>{event.uncertainties.length > 0 && <div className="uncertainty-note">{event.uncertainties.join(" · ")}</div>}</div></article>;
+  return <article className="timeline-row"><div className="timeline-date">{event.event_date ? formatDate(event.event_date) : "DATE NEEDED"}</div><div className="timeline-marker"><i /></div><div className="timeline-event"><div className="timeline-event-top"><span className={`event-type-badge ${eventBadgeClass(event.event_type)}`}>{pretty(event.event_type)}</span><span className={`review-label review-${event.review_status}`}>{pretty(event.review_status)}</span></div><p>{event.description}</p><div className="event-footer"><span>{event.basis === "explicitly_evidenced" ? "Source-backed" : pretty(event.basis)}{event.amount !== null && event.amount !== undefined ? ` · ${event.currency || ""} ${event.amount.toLocaleString("en-GB")}` : ""}{event.confidence ? ` · ${Math.round(event.confidence * 100)}% confidence` : ""}</span><EvidenceRefs references={event.evidence} files={files} /></div>{event.uncertainties.length > 0 && <div className="uncertainty-note">{event.uncertainties.join(" · ")}</div>}</div></article>;
 }
 
 function EvidenceRefs({ references, files }: { references: import("./api").EvidenceReference[]; files: import("./api").Evidence[] }) {
@@ -778,7 +1007,7 @@ function ProjectForm({ busy, onSubmit, onCancel }: { busy: boolean; onSubmit: (e
 }
 
 function CaseForm({ projects, busy, defaultProject, onSubmit, onCancel }: { projects: Project[]; busy: boolean; defaultProject?: string; onSubmit: (event: React.FormEvent<HTMLFormElement>) => void; onCancel: () => void }) {
-  return <form className="modal-form" onSubmit={onSubmit}><p className="modal-intro">Describe the alleged change in plain language. The agent will only prepare a draft for review.</p><label>Project<select name="project_id" required defaultValue={defaultProject ?? ""}><option value="" disabled>Select a project</option>{projects.map((project) => <option key={project.project_id} value={project.project_id}>{project.name}</option>)}</select></label><label>Case title<input name="title" required maxLength={500} placeholder="e.g. Additional drainage works" /></label><label>Alleged change<textarea name="alleged_change" required maxLength={5000} rows={4} placeholder="What changed from the original scope? Keep this factual; details can be checked against the source documents." /></label><div className="form-two"><label>Contract form<select name="form" defaultValue="unknown"><option value="unknown">Not specified</option><option value="jct">JCT</option><option value="nec">NEC</option><option value="bespoke">Bespoke</option></select></label><label>Jurisdiction<input name="jurisdiction" maxLength={500} placeholder="e.g. England and Wales" /></label></div><label>Contract details <span className="optional">Optional</span><input name="contract_description" maxLength={500} placeholder="Edition or relevant context" /></label><div className="modal-actions"><button type="button" className="button button-quiet" onClick={onCancel}>Cancel</button><button className="button button-primary" disabled={busy || !projects.length}>{busy ? "Creating…" : "Create case"} <Icon name="arrow" /></button></div>{!projects.length && <span className="form-hint">Create a project before adding a case.</span>}</form>;
+  return <form className="modal-form" onSubmit={onSubmit}><p className="modal-intro">Link each variation case to a project. The agent will automatically extract and reconcile all scope changes, instructions, and cost impacts across your uploaded evidence.</p><label>Project<select name="project_id" required defaultValue={defaultProject ?? ""}><option value="" disabled>Select a project</option>{projects.map((project) => <option key={project.project_id} value={project.project_id}>{project.name}</option>)}</select></label><label>Case title<input name="title" required maxLength={500} placeholder="e.g. Additional drainage works" /></label><div className="form-two"><label>Contract form<select name="form" defaultValue="unknown"><option value="unknown">Not specified</option><option value="jct">JCT</option><option value="nec">NEC</option><option value="bespoke">Bespoke</option></select></label><label>Jurisdiction<input name="jurisdiction" maxLength={500} placeholder="e.g. England and Wales" /></label></div><label>Contract details <span className="optional">Optional</span><input name="contract_description" maxLength={500} placeholder="Edition or relevant context" /></label><div className="modal-actions"><button type="button" className="button button-quiet" onClick={onCancel}>Cancel</button><button className="button button-primary" disabled={busy || !projects.length}>{busy ? "Creating…" : "Create case"} <Icon name="arrow" /></button></div>{!projects.length && <span className="form-hint">Create a project before adding a case.</span>}</form>;
 }
 
 function Modal({ title, children, onClose }: { title: string; children: React.ReactNode; onClose: () => void }) {

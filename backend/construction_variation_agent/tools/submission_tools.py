@@ -25,10 +25,11 @@ from ..shared_libraries.constants import (
     STATE_REVIEW_PREP,
     STATE_VARIATION,
 )
-from ..shared_libraries.provenance import citation_errors, legal_conclusions
+from ..shared_libraries.provenance import citation_errors, injection_flags, legal_conclusions
 from ..shared_libraries.runtime import ScopeError, runtime_from_state
 from ..shared_libraries.schemas import PlainEnglishSummary, ShortText, Strict
 from ..shared_libraries.types import DocumentCategory
+from .evidence_tools import UNTRUSTED_NOTICE
 from .validation_tools import validate_event_payload
 
 _ROUTES = {"extract_text", "vision_required", "skip_unsupported", "skip_irrelevant"}
@@ -112,12 +113,32 @@ def next_document_to_extract(tool_context: ToolContext) -> dict:
     tool_context.state[STATE_EXTRACT_CURSOR] = i + 1
     did = queue[i]
     doc = rt.provider.get_document(did)
-    return {
+    pages = []
+    for p in doc.pages[: rt.limits.max_pages_per_call]:
+        text = p.text[: rt.limits.max_chars_per_page]
+        pages.append(
+            {
+                "page_ref": p.page_ref,
+                "text": text,
+                "truncated": len(p.text) > len(text),
+                "instruction_like_text_flags": injection_flags(p.text),
+            }
+        )
+    result = {
+        "notice": UNTRUSTED_NOTICE,
         "done": False,
         "document_id": did,
+        "total_pages": len(doc.pages),
         "page_refs": [p.page_ref for p in doc.pages],
+        "pages": pages,
         "intake": routes.get(did, {}),
     }
+    if doc.image_bytes:
+        result["visual_input"] = (
+            "The original image is attached to this extraction turn. Inspect it visually. "
+            "Cite the visible region, not a fabricated text quote."
+        )
+    return result
 
 
 def submit_document_extraction(

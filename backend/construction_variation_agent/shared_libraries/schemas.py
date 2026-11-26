@@ -10,7 +10,7 @@ from __future__ import annotations
 
 import re
 from datetime import UTC, date, datetime
-from typing import Annotated, Literal
+from typing import Annotated, Any, Literal
 
 from pydantic import BaseModel, ConfigDict, Field, StringConstraints, model_validator
 
@@ -50,6 +50,8 @@ class EvidenceReference(Strict):
     quoted_span: Quote | None = None
     visual_region: ShortText | None = None
     user_authored: bool = False
+    document_name: ShortText | None = None
+    classification: ShortText | None = None
 
     @model_validator(mode="after")
     def _provenance(self) -> EvidenceReference:
@@ -95,10 +97,16 @@ class Project(ProjectCreate):
     updated_at: datetime = Field(default_factory=utcnow)
 
 
+DEFAULT_CASE_OBJECTIVE = (
+    "Reconcile and extract all variation events, scope changes, instructions, delays, quantities, "
+    "and price consequences evidenced across all uploaded case documents into an audit-ready factual record."
+)
+
+
 class CaseCreate(Strict):
     project_id: Identifier
     title: ShortText = Field(min_length=1)
-    alleged_change: LongText = Field(min_length=1)
+    alleged_change: LongText = Field(default=DEFAULT_CASE_OBJECTIVE)
     parties: list[PartyRef] = Field(default_factory=list, max_length=20)
     contract: ContractInfo = ContractInfo()
     key_dates: dict[ShortText, date] = Field(default_factory=dict, max_length=30)
@@ -207,14 +215,178 @@ class ReviewerQuestion(Strict):
 
 class PlainEnglishSummary(Strict):
     text: Annotated[str, StringConstraints(min_length=1, max_length=600, strip_whitespace=True)]
-    event_ids: list[Identifier] = Field(default_factory=list, max_length=5)
-    candidate_ids: list[Identifier] = Field(default_factory=list, max_length=5)
+    event_ids: list[Identifier] = Field(default_factory=list)
+    candidate_ids: list[Identifier] = Field(default_factory=list)
 
     @model_validator(mode="after")
     def _brief(self) -> PlainEnglishSummary:
         if len(self.text.split()) > 70:
             raise ValueError("plain English summary must be 70 words or fewer")
         return self
+
+
+# ------------------------------------------------------------- Upgraded Full Analysis Models (Part 3 & 4)
+class DocumentRegisterItem(Strict):
+    document_id: Identifier
+    filename: ShortText
+    category: ShortText
+    document_date: str | None = None
+    upload_date: str | None = None
+    parsing_status: str = "parsed"
+    page_count: int | None = None
+    events_extracted_count: int = 0
+    related_variations: list[Identifier] = Field(default_factory=list)
+    source_availability: str = "ready_to_read"
+    processing_errors: list[str] = Field(default_factory=list)
+
+
+class CompleteChronologyEvent(Strict):
+    event_id: Identifier
+    event_date: str | None = None
+    event_time: str | None = None
+    event_type: ShortText
+    description: LongText
+    parties: list[ShortText] = Field(default_factory=list)
+    document_id: Identifier
+    document_name: ShortText
+    page_ref: ShortText
+    quoted_span: LongText | None = None
+    visual_region: ShortText | None = None
+    related_variation_id: Identifier | None = None
+    evidence_classification: ShortText = "factual_record"
+    verification_status: str = "verified_from_evidence"
+
+
+class OriginalPosition(Strict):
+    work_description: LongText | None = None
+    quantity: float | None = None
+    quantity_unit: ShortText | None = None
+    specification: LongText | None = None
+    quotation_ref: ShortText | None = None
+    quoted_amount: float | None = None
+    currency: str | None = None
+    supporting_documents: list[EvidenceReference] = Field(default_factory=list)
+
+
+class ChangedPosition(Strict):
+    work_description: LongText | None = None
+    added_quantity: float | None = None
+    revised_total_quantity: float | None = None
+    quantity_unit: ShortText | None = None
+    specification_change: LongText | None = None
+    instruction_ref: ShortText | None = None
+    instruction_date: str | None = None
+    revised_quotation_ref: ShortText | None = None
+    revised_quoted_amount: float | None = None
+    currency: str | None = None
+    supporting_documents: list[EvidenceReference] = Field(default_factory=list)
+
+
+class QuantityProgressPosition(Strict):
+    item_description: ShortText
+    original_quantity: float | None = None
+    additional_requested: float | None = None
+    total_proposed: float | None = None
+    recorded_installed: float | None = None
+    remaining_not_evidenced: float | None = None
+    completion_evidence_status: ShortText = "Not evidenced"
+    calculation_note: LongText | None = None
+    evidence: list[EvidenceReference] = Field(default_factory=list)
+
+
+class CommercialPosition(Strict):
+    original_quoted_amount: float | None = None
+    revised_quoted_amount: float | None = None
+    calculated_difference: float | None = None
+    difference_label: ShortText = (
+        "Calculated difference between quoted totals — not an established payable variation amount"
+    )
+    currency: str | None = "GBP"
+    quotation_references: list[ShortText] = Field(default_factory=list)
+    commercial_acceptance_status: ShortText = "Commercial acceptance not established in reviewed evidence"
+    payment_status: ShortText = "No payment or valuation records in reviewed documents"
+    evidence: list[EvidenceReference] = Field(default_factory=list)
+
+
+class UnresolvedItem(Strict):
+    category: ShortText
+    description: LongText
+    reviewer_action: LongText
+    related_event_ids: list[Identifier] = Field(default_factory=list)
+
+
+class VariationPosition(Strict):
+    variation_id: Identifier
+    variation_title: ShortText
+    project_name: ShortText
+    alleged_change: LongText
+    parties: list[ShortText] = Field(default_factory=list)
+    instruction_refs: list[ShortText] = Field(default_factory=list)
+    evidence_status: ShortText
+    original_position: OriginalPosition = OriginalPosition()
+    changed_position: ChangedPosition = ChangedPosition()
+    quantity_progress: QuantityProgressPosition | None = None
+    commercial_position: CommercialPosition | None = None
+    unresolved_items: list[UnresolvedItem] = Field(default_factory=list)
+    confidence: Confidence = 0.0
+
+
+class ReviewItem(Strict):
+    review_id: Identifier
+    related_variation_id: Identifier | None = None
+    category: Literal[
+        "date_verification",
+        "scope_verification",
+        "quantity_verification",
+        "commercial_verification",
+        "instruction_verification",
+        "work_completion_verification",
+        "document_relationship_verification",
+        "missing_evidence",
+        "contradictory_evidence",
+        "other",
+    ] = "other"
+    issue_title: ShortText
+    description: LongText
+    why_requires_verification: LongText
+    supporting_documents: list[EvidenceReference] = Field(default_factory=list)
+    suggested_question: LongText
+    suggested_action: LongText
+    priority: Literal["critical", "high", "medium", "low"] = "medium"
+    status: Literal[
+        "pending_review",
+        "in_progress",
+        "confirmed",
+        "corrected",
+        "rejected",
+        "more_info_required",
+        "unresolved",
+    ] = "pending_review"
+    assigned_reviewer: str | None = None
+    comments: list[ShortText] = Field(default_factory=list)
+    decision: str | None = None
+    decision_reason: str | None = None
+    decision_timestamp: str | None = None
+
+
+class AnalysisMetadata(Strict):
+    engine_version: str = "2.0"
+    model_id: str | None = None
+    analysis_timestamp: datetime = Field(default_factory=utcnow)
+    job_id: Identifier = "job-default"
+    documents_uploaded: int = 0
+    documents_analysed: int = 0
+    events_count: int = 0
+    variations_count: int = 0
+    contradictions_count: int = 0
+    review_items_count: int = 0
+    missing_evidence_count: int = 0
+
+
+class ReportReadiness(Strict):
+    ready_for_review: bool = True
+    blockers: list[ShortText] = Field(default_factory=list)
+    advisory_notes: list[ShortText] = Field(default_factory=list)
 
 
 class ReviewDecision(Strict):
@@ -250,6 +422,55 @@ class AnalysisResult(Strict):
     reviewer_questions: list[ReviewerQuestion] = Field(default_factory=list)
     plain_english_summary: PlainEnglishSummary | None = None
     model_id: str | None = None
+    # Enhanced Part 3 sections
+    analysis_metadata: AnalysisMetadata | None = None
+    case_information: dict[str, Any] = Field(default_factory=dict)
+    document_register: list[DocumentRegisterItem] = Field(default_factory=list)
+    executive_summary: dict[str, Any] = Field(default_factory=dict)
+    variation_positions: list[VariationPosition] = Field(default_factory=list)
+    original_scope: list[dict[str, Any]] = Field(default_factory=list)
+    alleged_changes: list[dict[str, Any]] = Field(default_factory=list)
+    extracted_facts: list[dict[str, Any]] = Field(default_factory=list)
+    identified_events: list[TimelineEvent] = Field(default_factory=list)
+    cross_document_relationships: list[DocumentRelationship] = Field(default_factory=list)
+    complete_chronology: list[CompleteChronologyEvent] = Field(default_factory=list)
+    commercial_analysis: list[CommercialPosition] = Field(default_factory=list)
+    work_progress_analysis: list[QuantityProgressPosition] = Field(default_factory=list)
+    duplicate_records: list[dict[str, Any]] = Field(default_factory=list)
+    review_checklist: list[ReviewItem] = Field(default_factory=list)
+    review_decisions: list[dict[str, Any]] = Field(default_factory=list)
+    analysis_limitations: list[str] = Field(default_factory=list)
+    report_readiness: ReportReadiness | None = None
+
+    def to_full_dossier_dict(self) -> dict[str, Any]:
+        """Output the complete, 20-section Part 3 master schema dictionary."""
+        return {
+            "analysis_metadata": self.analysis_metadata.model_dump(mode="json")
+            if self.analysis_metadata
+            else {},
+            "case_information": self.case_information,
+            "document_register": [d.model_dump(mode="json") for d in self.document_register],
+            "executive_summary": self.executive_summary
+            or ({"text": self.plain_english_summary.text} if self.plain_english_summary else {}),
+            "variation_position": [v.model_dump(mode="json") for v in self.variation_positions],
+            "original_scope": self.original_scope,
+            "alleged_changes": self.alleged_changes,
+            "extracted_facts": self.extracted_facts,
+            "identified_events": [e.model_dump(mode="json") for e in (self.identified_events or self.events)],
+            "cross_document_relationships": [r.model_dump(mode="json") for r in (self.cross_document_relationships or self.relationships)],
+            "complete_chronology": [c.model_dump(mode="json") for c in self.complete_chronology],
+            "commercial_analysis": [c.model_dump(mode="json") for c in self.commercial_analysis],
+            "work_progress_analysis": [w.model_dump(mode="json") for w in self.work_progress_analysis],
+            "contradictions": [c.model_dump(mode="json") for c in self.contradictions],
+            "duplicate_records": self.duplicate_records,
+            "missing_evidence": [m.model_dump(mode="json") for m in self.missing_evidence],
+            "review_checklist": [r.model_dump(mode="json") for r in self.review_checklist],
+            "review_decisions": self.review_decisions,
+            "analysis_limitations": self.analysis_limitations,
+            "report_readiness": self.report_readiness.model_dump(mode="json")
+            if self.report_readiness
+            else {},
+        }
 
 
 class ErrorResult(Strict):
@@ -296,6 +517,23 @@ class CaseState(Strict):
     reviews: list[ReviewDecision] = Field(default_factory=list)
     active_job_id: Identifier | None = None
     report_refs: list[str] = Field(default_factory=list)
+    # Enhanced Part 3 & 4 fields
+    analysis_metadata: AnalysisMetadata | None = None
+    case_information: dict[str, Any] = Field(default_factory=dict)
+    document_register: list[DocumentRegisterItem] = Field(default_factory=list)
+    executive_summary: dict[str, Any] = Field(default_factory=dict)
+    variation_positions: list[VariationPosition] = Field(default_factory=list)
+    original_scope: list[dict[str, Any]] = Field(default_factory=list)
+    alleged_changes: list[dict[str, Any]] = Field(default_factory=list)
+    extracted_facts: list[dict[str, Any]] = Field(default_factory=list)
+    complete_chronology: list[CompleteChronologyEvent] = Field(default_factory=list)
+    commercial_analysis: list[CommercialPosition] = Field(default_factory=list)
+    work_progress_analysis: list[QuantityProgressPosition] = Field(default_factory=list)
+    duplicate_records: list[dict[str, Any]] = Field(default_factory=list)
+    review_checklist: list[ReviewItem] = Field(default_factory=list)
+    review_decisions: list[dict[str, Any]] = Field(default_factory=list)
+    analysis_limitations: list[str] = Field(default_factory=list)
+    report_readiness: ReportReadiness | None = None
 
 
 class JobRecord(Strict):

@@ -124,6 +124,116 @@ export type Job = {
   created_at: string;
   updated_at: string;
 };
+export type DocumentSummary = {
+  document_id: string;
+  filename: string;
+  category: string;
+  date: string;
+  summary: string;
+};
+export type DocumentProgressionStep = {
+  step: number;
+  document_id: string;
+  filename: string;
+  category: string;
+  date: string;
+  change_summary: string;
+};
+export type VariationPosition = {
+  variation_id: string;
+  variation_title: string;
+  project_name: string;
+  alleged_change: string;
+  parties: string[];
+  instruction_refs: string[];
+  evidence_status: string;
+  original_position: {
+    work_description?: string | null;
+    quantity?: number | null;
+    quantity_unit?: string | null;
+    specification?: string | null;
+    quotation_ref?: string | null;
+    quoted_amount?: number | null;
+    currency?: string | null;
+  };
+  changed_position: {
+    work_description?: string | null;
+    added_quantity?: number | null;
+    revised_total_quantity?: number | null;
+    quantity_unit?: string | null;
+    specification_change?: string | null;
+    instruction_ref?: string | null;
+    instruction_date?: string | null;
+    revised_quotation_ref?: string | null;
+    revised_quoted_amount?: number | null;
+    currency?: string | null;
+  };
+  quantity_progress?: {
+    item_description: string;
+    original_quantity?: number | null;
+    additional_requested?: number | null;
+    total_proposed?: number | null;
+    recorded_installed?: number | null;
+    remaining_not_evidenced?: number | null;
+    completion_evidence_status: string;
+    calculation_note?: string | null;
+  } | null;
+  commercial_position?: {
+    original_quoted_amount?: number | null;
+    revised_quoted_amount?: number | null;
+    calculated_difference?: number | null;
+    difference_label: string;
+    currency?: string | null;
+    commercial_acceptance_status: string;
+    payment_status: string;
+  } | null;
+  unresolved_items: Array<{
+    category: string;
+    description: string;
+    reviewer_action: string;
+  }>;
+};
+
+export type CompleteChronologyEvent = {
+  event_id: string;
+  event_date?: string | null;
+  event_time?: string | null;
+  event_type: string;
+  description: string;
+  parties: string[];
+  document_id: string;
+  document_name: string;
+  page_ref: string;
+  quoted_span?: string | null;
+  evidence_classification: string;
+  verification_status: string;
+};
+
+export type ReviewItem = {
+  review_id: string;
+  related_variation_id?: string | null;
+  category: string;
+  issue_title: string;
+  description: string;
+  why_requires_verification: string;
+  suggested_question: string;
+  suggested_action: string;
+  priority: string;
+  status: string;
+};
+
+export type DocumentRegisterItem = {
+  document_id: string;
+  filename: string;
+  category: string;
+  document_date?: string | null;
+  upload_date?: string | null;
+  parsing_status: string;
+  page_count?: number | null;
+  events_extracted_count: number;
+  source_availability: string;
+};
+
 export type Timeline = {
   case_id: string;
   revision: number;
@@ -141,6 +251,33 @@ export type Timeline = {
   contradictions: Contradiction[];
   missing_evidence: MissingEvidence[];
   reviewer_questions: ReviewerQuestion[];
+  plain_english_summary?: {
+    text: string;
+    event_ids: string[];
+    candidate_ids: string[];
+  } | null;
+  document_register?: DocumentRegisterItem[];
+  variation_positions?: VariationPosition[];
+  complete_chronology?: CompleteChronologyEvent[];
+  review_checklist?: ReviewItem[];
+  commercial_analysis?: Array<{
+    original_quoted_amount?: number | null;
+    revised_quoted_amount?: number | null;
+    calculated_difference?: number | null;
+    difference_label: string;
+    currency?: string | null;
+  }>;
+  work_progress_analysis?: Array<{
+    item_description: string;
+    original_quantity?: number | null;
+    additional_requested?: number | null;
+    total_proposed?: number | null;
+    recorded_installed?: number | null;
+    remaining_not_evidenced?: number | null;
+    completion_evidence_status: string;
+  }>;
+  document_summaries?: DocumentSummary[];
+  document_progression?: DocumentProgressionStep[];
   evidence: Evidence[];
   notice: string;
 };
@@ -341,8 +478,8 @@ export const api = {
     request<Job>(`/v1/jobs/${encodeURIComponent(jobId)}`, { context }),
   getTimeline: (context: ApiContext, caseId: string) =>
     request<Timeline>(`/v1/cases/${encodeURIComponent(caseId)}/timeline`, { context }),
-  createReport: (context: ApiContext, caseId: string) =>
-    requestPdf(`/v1/cases/${encodeURIComponent(caseId)}/report`, context, "POST"),
-  getReport: (context: ApiContext, caseId: string) =>
-    requestPdf(`/v1/cases/${encodeURIComponent(caseId)}/report`, context, "GET"),
+  createReport: (context: ApiContext, caseId: string, format: "pdf" | "docx" = "pdf") =>
+    requestPdf(`/v1/cases/${encodeURIComponent(caseId)}/report?format=${format}`, context, "POST"),
+  getReport: (context: ApiContext, caseId: string, format: "pdf" | "docx" = "pdf") =>
+    requestPdf(`/v1/cases/${encodeURIComponent(caseId)}/report?format=${format}`, context, "GET"),
 };
